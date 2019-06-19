@@ -152,7 +152,7 @@ py_library(
 {extras}""".format(
   requirements=args.requirements,
   dependencies=','.join([
-    'requirement("%s")' % d
+    'requirement("%s")' % d.split("[")[0]
     for d in whl.dependencies()
   ]),
   extras='\n\n'.join([
@@ -163,7 +163,7 @@ py_library(
     ],
 )""".format(extra=extra,
             deps=','.join([
-                'requirement("%s")' % dep
+                'requirement("%s")' % dep.split("[")[0]
                 for dep in whl.dependencies(extra)
             ]))
     for extra in args.extras or []
