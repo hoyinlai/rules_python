@@ -13,93 +13,55 @@
 # limitations under the License.
 """Import pip requirements into Bazel."""
 
-def _pip_import_impl(repository_ctx):
-    """Core implementation of pip_import."""
+load("//python/pip_install:pip_repository.bzl", "pip_repository")
+load("//python/pip_install:repositories.bzl", "pip_install_dependencies")
 
-    # Add an empty top-level BUILD file.
-    # This is because Bazel requires BUILD files along all paths accessed
-    # via //this/sort/of:path and we wouldn't be able to load our generated
-    # requirements.bzl without it.
-    repository_ctx.file("BUILD", "")
+def pip_install(requirements, name = "pip", **kwargs):
+    """Imports a `requirements.txt` file and generates a new `requirements.bzl` file.
 
-    # To see the output, pass: quiet=False
-    result = repository_ctx.execute([
-        "python",
-        repository_ctx.path(repository_ctx.attr._script),
-        "--name",
-        repository_ctx.attr.name,
-        "--input",
-        repository_ctx.path(repository_ctx.attr.requirements),
-        "--output",
-        repository_ctx.path("requirements.bzl"),
-        "--directory",
-        repository_ctx.path(""),
-    ])
+    This is used via the `WORKSPACE` pattern:
 
-    if result.return_code:
-        fail("pip_import failed: %s (%s)" % (result.stdout, result.stderr))
+    ```python
+    pip_install(
+        requirements = ":requirements.txt",
+    )
+    ```
 
-pip_import = repository_rule(
-    attrs = {
-        "requirements": attr.label(
-            mandatory = True,
-            allow_single_file = True,
-        ),
-        "_script": attr.label(
-            executable = True,
-            default = Label("//tools:piptool.par"),
-            cfg = "host",
-        ),
-    },
-    implementation = _pip_import_impl,
-)
+    You can then reference imported dependencies from your `BUILD` file with:
 
-"""A rule for importing <code>requirements.txt</code> dependencies into Bazel.
+    ```python
+    load("@pip//:requirements.bzl", "requirement")
+    py_library(
+        name = "bar",
+        ...
+        deps = [
+           "//my/other:dep",
+           requirement("requests"),
+           requirement("numpy"),
+        ],
+    )
+    ```
 
-This rule imports a <code>requirements.txt</code> file and generates a new
-<code>requirements.bzl</code> file.  This is used via the <code>WORKSPACE</code>
-pattern:
-<pre><code>pip_import(
-    name = "foo",
-    requirements = ":requirements.txt",
-)
-load("@foo//:requirements.bzl", "pip_install")
-pip_install()
-</code></pre>
+    Args:
+      requirements: A 'requirements.txt' pip requirements file.
+      name: A unique name for the created external repository (default 'pip').
+      **kwargs: Keyword arguments passed directly to the `pip_repository` repository rule.
+    """
+    # Just in case our dependencies weren't already fetched
+    pip_install_dependencies()
 
-You can then reference imported dependencies from your <code>BUILD</code>
-file with:
-<pre><code>load("@foo//:requirements.bzl", "requirement")
-py_library(
-    name = "bar",
-    ...
-    deps = [
-       "//my/other:dep",
-       requirement("futures"),
-       requirement("mock"),
-    ],
-)
-</code></pre>
-
-Or alternatively:
-<pre><code>load("@foo//:requirements.bzl", "all_requirements")
-py_binary(
-    name = "baz",
-    ...
-    deps = [
-       ":foo",
-    ] + all_requirements,
-)
-</code></pre>
-
-Args:
-  requirements: The label of a requirements.txt file.
-"""
+    pip_repository(
+        name = name,
+        requirements = requirements,
+        **kwargs
+    )
 
 def pip_repositories():
-    """Pull in dependencies needed for pulling in pip dependencies.
+    # buildifier: disable=print
+    print("DEPRECATED: the pip_repositories rule has been replaced with pip_install, please see rules_python 0.1 release notes")
 
-    A placeholder method that will eventually pull in any dependencies
-    needed to install pip dependencies.
-    """
-    pass
+def pip_import(**kwargs):
+    fail("=" * 79 + """\n
+    pip_import has been replaced with pip_install, please see the rules_python 0.1 release notes.
+    To continue using it, you can load from "@rules_python//python/legacy_pip_import:pip.bzl"
+    """)
